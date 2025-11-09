@@ -32,6 +32,10 @@ async function loadModels() {
     try {
         modelStatus.textContent = 'Loading AI Models...';
         
+        // Set TensorFlow.js backend
+        await tf.setBackend('webgl');
+        await tf.ready();
+        
         // Load Blazeface (fastest face detector)
         blazefaceModel = await blazeface.load();
         console.log('✅ Blazeface loaded');
@@ -79,7 +83,7 @@ function toggleSection(section) {
         registerStream = null;
         clearCanvas(registerCanvas);
         startAttendanceCamera();
-        startContinuousRecognition();
+        setTimeout(() => startContinuousRecognition(), 500);
     }
 }
 
@@ -97,10 +101,14 @@ async function startRegisterCamera() {
         });
         registerVideo.srcObject = registerStream;
         
-        registerVideo.onloadedmetadata = () => {
-            registerCanvas.width = registerVideo.videoWidth;
-            registerCanvas.height = registerVideo.videoHeight;
-        };
+        await new Promise((resolve) => {
+            registerVideo.onloadedmetadata = () => {
+                registerVideo.play();
+                registerCanvas.width = registerVideo.videoWidth;
+                registerCanvas.height = registerVideo.videoHeight;
+                resolve();
+            };
+        });
     } catch (error) {
         showStatus(registerStatus, '❌ Camera access denied', 'error');
     }
@@ -120,10 +128,14 @@ async function startAttendanceCamera() {
         });
         attendanceVideo.srcObject = attendanceStream;
         
-        attendanceVideo.onloadedmetadata = () => {
-            attendanceCanvas.width = attendanceVideo.videoWidth;
-            attendanceCanvas.height = attendanceVideo.videoHeight;
-        };
+        await new Promise((resolve) => {
+            attendanceVideo.onloadedmetadata = () => {
+                attendanceVideo.play();
+                attendanceCanvas.width = attendanceVideo.videoWidth;
+                attendanceCanvas.height = attendanceVideo.videoHeight;
+                resolve();
+            };
+        });
     } catch (error) {
         showStatus(attendanceStatus, '❌ Camera access denied', 'error');
     }
@@ -143,35 +155,40 @@ function clearCanvas(canvas) {
 }
 
 // Extract face features using FaceMesh
-async function extractFaceFeatures(video) {
-    const predictions = await facemeshModel.estimateFaces({ input: video });
-    
-    if (predictions.length > 0) {
-        const keypoints = predictions[0].scaledMesh;
+async function extractFaceFeatures(videoElement) {
+    try {
+        // Pass the video element directly
+        const predictions = await facemeshModel.estimateFaces(videoElement);
         
-        // Extract key facial points for comparison
-        const features = {
-            // Eyes
-            leftEye: keypoints[33],
-            rightEye: keypoints[263],
-            // Nose
-            noseTip: keypoints[1],
-            noseBase: keypoints[168],
-            // Mouth
-            leftMouth: keypoints[61],
-            rightMouth: keypoints[291],
-            topLip: keypoints[13],
-            bottomLip: keypoints[14],
-            // Face outline points
-            leftCheek: keypoints[234],
-            rightCheek: keypoints[454],
-            chin: keypoints[152],
-            forehead: keypoints[10]
-        };
-        
-        // Create a feature vector
-        const featureVector = Object.values(features).flat();
-        return featureVector;
+        if (predictions.length > 0) {
+            const keypoints = predictions[0].scaledMesh;
+            
+            // Extract key facial points for comparison
+            const features = {
+                // Eyes
+                leftEye: keypoints[33],
+                rightEye: keypoints[263],
+                // Nose
+                noseTip: keypoints[1],
+                noseBase: keypoints[168],
+                // Mouth
+                leftMouth: keypoints[61],
+                rightMouth: keypoints[291],
+                topLip: keypoints[13],
+                bottomLip: keypoints[14],
+                // Face outline points
+                leftCheek: keypoints[234],
+                rightCheek: keypoints[454],
+                chin: keypoints[152],
+                forehead: keypoints[10]
+            };
+            
+            // Create a feature vector
+            const featureVector = Object.values(features).flat();
+            return featureVector;
+        }
+    } catch (error) {
+        console.error('Feature extraction error:', error);
     }
     
     return null;
@@ -212,16 +229,21 @@ async function captureFace() {
         return;
     }
 
+    if (registerVideo.readyState !== 4) {
+        showStatus(registerStatus, '⚠️ Camera not ready', 'error');
+        return;
+    }
+
     captureBtn.disabled = true;
     captureBtn.innerHTML = '<span class="btn-icon">⏳</span> Processing...';
     showStatus(registerStatus, '🔍 Detecting face...', 'info');
 
     try {
-        // Detect face with Blazeface
+        // Detect face with Blazeface - pass video element directly
         const predictions = await blazefaceModel.estimateFaces(registerVideo, false);
         
         if (predictions.length > 0) {
-            // Extract features with FaceMesh
+            // Extract features with FaceMesh - pass video element directly
             const features = await extractFaceFeatures(registerVideo);
             
             if (features) {
@@ -278,6 +300,11 @@ async function startContinuousRecognition() {
         return;
     }
 
+    if (attendanceVideo.readyState !== 4) {
+        setTimeout(() => startContinuousRecognition(), 500);
+        return;
+    }
+
     isRecognizing = true;
     showStatus(attendanceStatus, '🚀 Real-time recognition active!', 'info');
     
@@ -286,7 +313,10 @@ async function startContinuousRecognition() {
 
 // Recognition loop for real-time detection
 async function recognizeLoop() {
-    if (!isRecognizing || !attendanceVideo.readyState === 4) {
+    if (!isRecognizing || attendanceVideo.readyState !== 4) {
+        if (isRecognizing) {
+            requestAnimationFrame(recognizeLoop);
+        }
         return;
     }
 
@@ -300,10 +330,12 @@ async function recognizeLoop() {
             lastTime = now;
         }
 
+        // Detect faces - pass video element directly
         const predictions = await blazefaceModel.estimateFaces(attendanceVideo, false);
         clearCanvas(attendanceCanvas);
 
         if (predictions.length > 0) {
+            // Extract features - pass video element directly
             const features = await extractFaceFeatures(attendanceVideo);
             
             if (features) {
@@ -331,7 +363,9 @@ async function recognizeLoop() {
                         markAttendance(bestMatch.name);
                         showStatus(attendanceStatus, `✅ ${bestMatch.name} - ${confidence}% match!`, 'success');
                         setTimeout(() => {
-                            showStatus(attendanceStatus, '🚀 Real-time recognition active!', 'info');
+                            if (isRecognizing) {
+                                showStatus(attendanceStatus, '🚀 Real-time recognition active!', 'info');
+                            }
                         }, 3000);
                     }
                 } else {
