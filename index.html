@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition - Attendance App</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>⚡</text></svg>">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="background-animation">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+        <div class="circle circle-3"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <h1>FaceSync Ultra</h1>
+            </div>
+            <p class="tagline">Lightning Fast Face Recognition</p>
+            <div id="modelStatus" class="model-status">Loading AI Models...</div>
+        </div>
+        
+        <div class="button-group">
+            <button id="registerBtn" class="btn btn-gradient-1">
+                <span class="btn-icon">👤</span>
+                Register New Person
+            </button>
+            <button id="attendanceBtn" class="btn btn-gradient-2">
+                <span class="btn-icon">✓</span>
+                Mark Attendance
+            </button>
+        </div>
+
+        <!-- Registration Section -->
+        <div id="registerSection" class="section card hidden">
+            <div class="section-header">
+                <h2>🎨 Register New Person</h2>
+                <div class="pulse-dot"></div>
+            </div>
+            <div class="input-group">
+                <input type="text" id="personName" placeholder="Enter full name here..." />
+                <button id="captureBtn" class="btn btn-capture">
+                    <span class="btn-icon">📸</span>
+                    Capture Face
+                </button>
+            </div>
+            <div class="video-wrapper">
+                <div class="video-container">
+                    <video id="registerVideo" autoplay muted playsinline></video>
+                    <canvas id="registerCanvas"></canvas>
+                    <div class="detection-overlay" id="registerOverlay"></div>
+                </div>
+            </div>
+            <div id="registerStatus" class="status"></div>
+            <div class="stats">
+                <span>Registered Faces: <strong id="faceCount">0</strong></span>
+            </div>
+        </div>
+
+        <!-- Attendance Section -->
+        <div id="attendanceSection" class="section card hidden">
+            <div class="section-header">
+                <h2>🔍 Real-Time Recognition</h2>
+                <div class="pulse-dot active"></div>
+            </div>
+            <div class="video-wrapper">
+                <div class="video-container">
+                    <video id="attendanceVideo" autoplay muted playsinline></video>
+                    <canvas id="attendanceCanvas"></canvas>
+                    <div class="detection-overlay" id="attendanceOverlay"></div>
+                </div>
+            </div>
+            <div id="attendanceStatus" class="status"></div>
+            <div class="stats">
+                <span>Detection Speed: <strong id="fps">0</strong> FPS</span>
+            </div>
+        </div>
+
+        <!-- Attendance Records -->
+        <div class="records-section card">
+            <div class="section-header">
+                <h2>📊 Attendance Records</h2>
+                <button id="clearRecords" class="btn-small">Clear All</button>
+            </div>
+            <div id="recordsContainer"></div>
+        </div>
+    </div>
+
+    
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/facemesh@0.0.5"></script>
+    <script src="index.js"></script>
+</body>
+</html>
